@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The cost of bad information — what goes wrong when records are wrong</title>
+<style>
+:root{
+  --bg:#0b1220;
+  --panel:#111c30;
+  --panel2:#0f1729;
+  --ink:#e9eef8;
+  --muted:#95a7c4;
+  --line:#243350;
+  --accent:#f5b642;
+  --bad:#ff6b6b;
+  --good:#3ddc97;
+  --warn:#ff9f43;
+  --info:#5aa9ff;
+  --violet:#b38cff;
+  --teal:#2fd4c9;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 640px at 82% -12%, #17253f 0%, #0b1220 58%) fixed;
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+/* ---------- deck shell ---------- */
+.deck{position:fixed;inset:0}
+.slide{
+  position:absolute;inset:0;overflow-y:auto;display:none;
+  padding:clamp(1.1rem,3.5vw,2.6rem) clamp(1rem,4vw,3rem) 6.5rem;
+}
+.slide.active{display:block}
+.slide-inner{max-width:1080px;margin:0 auto;animation:rise .32s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.progress{position:fixed;top:0;left:0;height:3px;width:8%;background:linear-gradient(90deg,var(--accent),var(--good));z-index:30;transition:width .3s ease}
+/* ---------- type ---------- */
+h1{font-size:clamp(1.85rem,5vw,3.5rem);line-height:1.05;letter-spacing:-.022em;margin:.25em 0 .3em;font-weight:850}
+h2{font-size:clamp(1.35rem,3.1vw,2.15rem);line-height:1.14;letter-spacing:-.015em;margin:0 0 .5rem;font-weight:820}
+h3{font-size:clamp(1.02rem,2.1vw,1.28rem);margin:0 0 .35rem;font-weight:780}
+h4{margin:0 0 .2rem;font-size:.99rem;font-weight:780}
+p,li{font-size:clamp(.95rem,1.65vw,1.06rem)}
+p{margin:0 0 .7rem}
+.lede{font-size:clamp(1rem,2.05vw,1.24rem);color:var(--muted);max-width:62ch}
+.kicker{display:inline-flex;align-items:center;gap:.5rem;font-size:.71rem;letter-spacing:.17em;text-transform:uppercase;color:var(--accent);font-weight:800;margin-bottom:.35rem}
+.kicker::before{content:"";width:22px;height:2px;background:var(--accent);display:block;border-radius:2px}
+.small{font-size:.85rem;color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+/* ---------- components ---------- */
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--r);padding:1rem 1.15rem}
+.grid{display:grid;gap:.85rem}
+.g2{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.btn{
+  appearance:none;border:1px solid var(--line);background:#17243c;color:var(--ink);
+  padding:.55rem .95rem;border-radius:11px;font:inherit;font-size:.9rem;font-weight:650;
+  cursor:pointer;transition:.15s;line-height:1.2
+}
+.btn:hover{background:#1e2f4d;border-color:#3a557f}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:#0b1220;border-color:var(--accent);font-weight:850}
+.btn.primary:hover{background:#ffc95e}
+.btn.big{font-size:1.02rem;padding:.85rem 1.6rem;border-radius:14px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+/* ---------- hud ---------- */
+.hud{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  display:flex;align-items:center;gap:.7rem;justify-content:space-between;
+  padding:.55rem clamp(.8rem,3vw,1.7rem);
+  background:linear-gradient(0deg,rgba(11,18,32,.99) 30%,rgba(11,18,32,.72));
+  border-top:1px solid var(--line);backdrop-filter:blur(10px)
+}
+.hud-group{display:flex;align-items:center;gap:.5rem}
+.dots{display:flex;gap:5px;flex-wrap:wrap;max-width:44vw}
+.dot{width:9px;height:9px;border-radius:50%;border:1px solid #3a4d70;background:transparent;padding:0;cursor:pointer;transition:.15s}
+.dot:hover{background:#3a4d70}
+.dot.on{background:var(--accent);border-color:var(--accent);transform:scale(1.25)}
+.counter{font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--muted);font-weight:700;letter-spacing:.06em}
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel2);-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:.52rem .68rem;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{background:#16233c;color:var(--muted);font-size:.69rem;text-transform:uppercase;letter-spacing:.09em;font-weight:800}
+tbody tr:last-child td{border-bottom:none}
+table.dirty{min-width:840px}
+table.dirty td.bad-cell{background:rgba(255,107,107,.14);box-shadow:inset 0 -2px 0 var(--bad)}
+table.dirty td.warn-cell{background:rgba(255,159,67,.13);box-shadow:inset 0 -2px 0 var(--warn)}
+table.dirty td.info-cell{background:rgba(90,169,255,.13);box-shadow:inset 0 -2px 0 var(--info)}
+table.dirty td.accent-cell{background:rgba(245,182,66,.13);box-shadow:inset 0 -2px 0 var(--accent)}
+table.dirty td.violet-cell{background:rgba(179,140,255,.14);box-shadow:inset 0 -2px 0 var(--violet)}
+table.dirty td.teal-cell{background:rgba(47,212,201,.13);box-shadow:inset 0 -2px 0 var(--teal)}
+.badge{
+  display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;
+  font-size:.66rem;font-weight:900;color:#08101d;margin-left:.32rem;vertical-align:middle;
+  background:var(--c,var(--bad))
+}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(275px,1fr));gap:.55rem;margin-top:.9rem}
+.note{display:flex;gap:.6rem;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c,var(--bad));border-radius:11px;padding:.55rem .75rem;font-size:.855rem;line-height:1.42}
+.note b{display:block;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--c,var(--bad));margin-bottom:.1rem}
+.note .nb{flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--c,var(--bad));color:#08101d;font-weight:900;font-size:.7rem;margin-top:1px}
+/* ---------- cost calculator ---------- */
+.math{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.8rem;line-height:1.75;background:#0a1424;border:1px solid var(--line);
+  border-radius:12px;padding:.85rem 1rem;overflow-x:auto;color:#c9d6ea;margin:0;white-space:pre
+}
+.math b{color:var(--good);font-weight:800}
+.math i{color:var(--muted);font-style:normal}
+.calc{display:grid;grid-template-columns:1.15fr .85fr;gap:1rem;align-items:start}
+@media(max-width:760px){.calc{grid-template-columns:1fr}}
+.slider{display:grid;grid-template-columns:1fr auto;gap:.1rem .6rem;align-items:center;margin-bottom:.6rem}
+.slider label{font-size:.82rem;color:var(--muted);line-height:1.3}
+.slider output{font-variant-numeric:tabular-nums;font-weight:850;color:var(--ink);font-size:.9rem;white-space:nowrap}
+.slider input[type=range]{grid-column:1/-1;width:100%;height:22px;accent-color:var(--accent);cursor:pointer;background:transparent}
+.calc-out{background:linear-gradient(180deg,#13253d,#0e1c30);border:1px solid #2c4a6f;border-radius:var(--r);padding:1rem}
+.total{font-size:clamp(1.7rem,4.6vw,2.5rem);font-weight:900;letter-spacing:-.03em;color:var(--good);line-height:1.1;font-variant-numeric:tabular-nums}
+.total small{font-size:.42em;font-weight:700;color:var(--muted);letter-spacing:0}
+.split{display:flex;justify-content:space-between;gap:.6rem;font-size:.86rem;padding:.35rem 0;border-bottom:1px dashed #26405f;color:var(--muted)}
+.split:last-child{border-bottom:none}
+.split b{color:var(--ink);font-variant-numeric:tabular-nums}
+/* ---------- steps ---------- */
+.steps{display:flex;flex-direction:column;gap:.5rem}
+.step{display:grid;grid-template-columns:auto 1fr auto;gap:.75rem;align-items:start;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.62rem .8rem}
+.step .n{width:27px;height:27px;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:.82rem;background:#1c2c47;color:var(--accent);border:1px solid var(--line);flex:0 0 auto}
+.step p{margin:0;font-size:.865rem;color:var(--muted);line-height:1.42}
+.step .t{font-variant-numeric:tabular-nums;font-weight:850;font-size:.86rem;color:var(--warn);white-space:nowrap}
+.brk{margin-top:.35rem;font-size:.83rem;padding:.38rem .6rem;border-radius:8px;
+  background:rgba(255,107,107,.11);border-left:3px solid var(--bad);color:#ffc9c9;line-height:1.4}
+.win{margin-top:.35rem;font-size:.83rem;padding:.38rem .6rem;border-radius:8px;
+  background:rgba(61,220,151,.11);border-left:3px solid var(--good);color:#bdf5dd;line-height:1.4}
+.step.after .t{color:var(--good)}
+.step.after .n{color:var(--good)}
+@media(max-width:600px){
+  .step{grid-template-columns:auto 1fr}
+  .step .t{grid-column:2;justify-self:start;margin-top:.15rem}
+}
+.totals{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:.85rem}
+.chip{font-size:.83rem;font-weight:750;padding:.35rem .75rem;border-radius:999px;
+  background:#17243c;border:1px solid var(--line);color:var(--muted)}
+.chip.bad{background:rgba(255,107,107,.14);border-color:#7a3232;color:#ffb8b8}
+.chip.good{background:rgba(61,220,151,.13);border-color:#2b6a52;color:#a8f2d2}
+/* ---------- comparison ---------- */
+.toggle{display:inline-flex;gap:.3rem;background:#0e1729;border:1px solid var(--line);border-radius:11px;padding:.25rem;margin-bottom:.75rem}
+.toggle button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:750;
+  padding:.35rem .85rem;border-radius:8px;cursor:pointer;transition:.15s}
+.toggle button.on{background:var(--accent);color:#0b1220}
+table.cmp{min-width:0;font-size:.94rem}
+table.cmp th,table.cmp td{padding:.6rem .8rem}
+table.cmp td.metric{color:var(--ink);font-weight:600;white-space:normal}
+table.cmp td.col-before{color:#ffb3b3;font-weight:800;font-variant-numeric:tabular-nums}
+table.cmp td.col-after{color:#9df0cb;font-weight:800;font-variant-numeric:tabular-nums}
+table.cmp.view-before td.col-after{opacity:.18;filter:grayscale(1)}
+table.cmp.view-after td.col-before{opacity:.18;filter:grayscale(1)}
+.caveat{margin-top:.9rem;border-left:4px solid var(--warn);background:rgba(255,159,67,.09);
+  border-radius:0 12px 12px 0;padding:.75rem 1rem;font-size:.9rem;color:#f2d9b6}
+/* ---------- misc ---------- */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:720px){.vs{grid-template-columns:1fr}}
+.vs .card.lab{border-top:3px solid var(--info)}
+.vs .card.topic{border-top:3px solid var(--accent)}
+.qa{border-left:4px solid var(--info);background:linear-gradient(180deg,#122036,#0f1a2c);border-radius:0 12px 12px 0;padding:.8rem 1rem;margin-bottom:.75rem}
+.qa .q{font-weight:800;color:#bfd9ff;margin-bottom:.3rem;font-size:.97rem}
+.qa .a{font-size:.9rem;color:#cfdcef;margin:0}
+.prompt{display:flex;gap:.65rem;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:.6rem .8rem;font-size:.9rem;margin-bottom:.5rem}
+.prompt .pn{flex:0 0 auto;width:21px;height:21px;border-radius:50%;background:var(--accent);color:#0b1220;
+  display:grid;place-items:center;font-weight:900;font-size:.72rem;margin-top:2px}
+.take{display:flex;gap:.85rem;align-items:flex-start;padding:.7rem 0;border-bottom:1px dashed #22304a}
+.take:last-child{border-bottom:none}
+.take .tn{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  font-weight:900;font-size:.85rem;background:#1c2c47;color:var(--accent);border:1px solid var(--line)}
+.take p{margin:.15rem 0 0;font-size:.93rem;color:var(--muted);line-height:1.48}
+.task{margin-top:1rem;border:1px solid #6b5520;background:linear-gradient(180deg,#221c0c,#181405);
+  border-radius:var(--r);padding:1rem 1.15rem}
+.task h3{color:var(--accent)}
+ul.tight{margin:.3rem 0 .8rem;padding-left:1.15rem}
+ul.tight li{margin-bottom:.3rem;color:var(--muted)}
+ul.tight li b{color:var(--ink)}
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff;color:#000}
+  .deck{position:static}
+  .slide{position:static;display:block!important;page-break-after:always;padding:1.5cm;overflow:visible}
+  .hud,.progress{display:none}
+  .card,.note,.step,.tablewrap,.calc-out,.task{background:#fff;border-color:#bbb;color:#000}
+  h1,h2,h3,h4,p,li,td,th{color:#000!important}
+}
+</style>
+</head>
+<body>
+
+<div class="progress" id="bar"></div>
+
+<div class="deck" id="deck">
+
+  <!-- ============ 1. TITLE / HERO ============ -->
+  <section class="slide active">
+    <div class="slide-inner">
+      <div class="kicker">BSIT · Information Management · Lecture</div>
+      <h1>The cost of bad information</h1>
+      <p class="lede" style="font-size:clamp(1.1rem,2.6vw,1.6rem);color:var(--ink);font-weight:600;max-width:34ch">
+        What goes wrong when records are wrong.
+      </p>
+      <p class="lede" style="margin-top:-.2rem">
+        When a record is wrong, the organization pays for it twice.
+      </p>
+
+      <div style="margin-top:1.6rem;display:flex;gap:.7rem;flex-wrap:wrap;align-items:center">
+        <button class="btn primary big" onclick="go(1)">Start →</button>
+        <span class="small">12 slides · case analysis · live cost calculator</span>
+      </div>
+
+      <div class="grid g3" style="margin-top:2.2rem">
+        <div class="card">
+          <div class="kicker" style="color:var(--bad)">The case</div>
+          <h3>A barangay clinic</h3>
+          <p class="small" style="margin:0">One patient, four records, one wrong PhilHealth number — and a report to the city that nobody can trust.</p>
+        </div>
+        <div class="card">
+          <div class="kicker" style="color:var(--good)">The demo</div>
+          <h3>One process, twice</h3>
+          <p class="small" style="margin:0">A prenatal check-up run with dirty records, then with clean ones. Same six steps, side by side.</p>
+        </div>
+        <div class="card">
+          <div class="kicker" style="color:var(--info)">The answer</div>
+          <h3>A number and a name</h3>
+          <p class="small" style="margin:0">Every failure gets a peso figure and a person accountable for it. No adjectives.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. THE HOOK ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">02 · The hook</div>
+      <h2>8:40 a.m. at Barangay San Roque Health Center</h2>
+
+      <div class="card" style="border-left:4px solid var(--bad);padding:1.3rem 1.5rem">
+        <p style="font-size:clamp(1rem,2.1vw,1.18rem);line-height:1.65;margin:0">
+          Maria Dela Cruz arrives for her prenatal check-up. The clerk types her name into the clinic's
+          record system and gets <b>four different files</b>. She picks the top one. The nurse treats Maria
+          from a record whose last visit says <b>2023</b> and which says nothing about her
+          <b>penicillin allergy</b> — that note is sitting in a different file, under
+          <i>"Ma. Sarah Dela Cruz."</i> Two weeks later the clinic's monthly report counts Maria
+          three times, so the city health office is told the clinic served <b>212 patients</b>
+          when it actually served <b>198</b>.
+        </p>
+      </div>
+
+      <div class="grid g3" style="margin-top:1.1rem">
+        <div class="card" style="border-top:3px solid var(--bad)">
+          <h4 style="color:#ffb3b3">The record</h4>
+          <p class="small" style="margin:0">Four files, three spellings, two PhilHealth numbers. Every one of them looks plausible.</p>
+        </div>
+        <div class="card" style="border-top:3px solid var(--warn)">
+          <h4 style="color:#ffcf9e">The consequence</h4>
+          <p class="small" style="margin:0">A prescription written against an incomplete allergy history. A rejected claim. A wrong number sent upward.</p>
+        </div>
+        <div class="card" style="border-top:3px solid var(--info)">
+          <h4 style="color:#a9cfff">Who paid</h4>
+          <p class="small" style="margin:0">Maria paid in risk. The clinic paid in rework. The city paid by buying vaccines for 14 patients who do not exist.</p>
+        </div>
+      </div>
+
+      <p class="small" style="margin-top:1.1rem">
+        Nothing here is a broken computer. Every piece of software worked exactly as designed.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 3. THE CASE ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">03 · The case</div>
+      <h2>One patient, six records</h2>
+      <p class="lede">This is the actual patient index at the clinic. All six rows look reasonable. None of them is the truth.</p>
+
+      <div class="tablewrap">
+        <table class="dirty">
+          <thead>
+            <tr>
+              <th>Record ID</th><th>Full name</th><th>Date of birth</th><th>Address</th>
+              <th>Contact</th><th>Last visit</th><th>PhilHealth no.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>P-1042</td><td>Maria Dela Cruz</td><td>1994-03-12</td>
+              <td>Purok 3, Brgy. San Roque</td><td>0917 442 1180</td><td>2024-11-04</td><td>12-345678901-2</td>
+            </tr>
+            <tr>
+              <td class="bad-cell">P-1042 <span class="badge" style="--c:var(--bad)">1</span></td>
+              <td class="bad-cell">Maria Dela Cruz</td><td class="bad-cell">1994-03-12</td>
+              <td class="bad-cell">Purok 3, Brgy. San Roque</td><td class="bad-cell">0917 442 1180</td>
+              <td class="bad-cell">2024-11-04</td><td class="bad-cell">12-345678901-2</td>
+            </tr>
+            <tr>
+              <td class="warn-cell">P-1187 <span class="badge" style="--c:var(--warn)">2</span></td>
+              <td class="warn-cell">Ma. Sarah Dela Cruz <span class="badge" style="--c:var(--info)">3</span></td>
+              <td class="warn-cell">1994-03-12</td>
+              <td class="warn-cell">Purok 3</td>
+              <td class="info-cell">—</td><td class="warn-cell">2025-01-08</td>
+              <td class="info-cell">—</td>
+            </tr>
+            <tr>
+              <td class="accent-cell">P-1063 <span class="badge" style="--c:var(--accent)">4</span></td>
+              <td class="accent-cell">Maria Dela Cruz</td><td class="accent-cell">1994-03-12</td>
+              <td class="accent-cell">Purok 3, Brgy. San Roque</td><td class="accent-cell">0917 442 1180</td>
+              <td class="accent-cell">2023-06-15</td><td class="accent-cell">12-345678901-2</td>
+            </tr>
+            <tr>
+              <td class="violet-cell">P-1090 <span class="badge" style="--c:var(--violet)">5</span></td>
+              <td class="violet-cell">Maria Dela Cruz</td><td class="violet-cell">1994-03-12</td>
+              <td class="violet-cell">Purok 3, Brgy. San Roque</td><td class="violet-cell">0917 442 1180</td>
+              <td class="violet-cell">2025-02-02</td>
+              <td class="violet-cell">12-345678902-3</td>
+            </tr>
+            <tr>
+              <td class="teal-cell">P-1155 <span class="badge" style="--c:var(--teal)">6</span></td>
+              <td class="teal-cell">Lourdes Dela Cruz</td><td class="teal-cell">1953-07-30</td>
+              <td class="teal-cell">Purok 3, Brgy. San Roque</td><td class="teal-cell">0917 442 1180</td>
+              <td class="teal-cell">2025-01-22</td><td class="teal-cell">12-345678901-2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="notes">
+        <div class="note" style="--c:var(--bad)">
+          <span class="nb">1</span>
+          <div><b>Exact duplicate</b>The same Record ID used twice, every field identical. The system never enforced uniqueness, so a second row was simply inserted.</div>
+        </div>
+        <div class="note" style="--c:var(--warn)">
+          <span class="nb">2</span>
+          <div><b>Near-duplicate</b>"Ma. Sarah Dela Cruz" with a brand-new ID. The clerk searched, found nothing she recognised, and created a new record.</div>
+        </div>
+        <div class="note" style="--c:var(--info)">
+          <span class="nb">3</span>
+          <div><b>Missing field</b>No contact number, no PhilHealth number. Nobody can call this patient and nobody can bill her.</div>
+        </div>
+        <div class="note" style="--c:var(--accent)">
+          <span class="nb">4</span>
+          <div><b>Stale field</b>Last visit 2023-06-15 — although she has come every month since. This file stopped being updated two years ago and nobody retired it.</div>
+        </div>
+        <div class="note" style="--c:var(--violet)">
+          <span class="nb">5</span>
+          <div><b>Valid-looking wrong value</b>PhilHealth number <span class="mono">…901-2</span> became <span class="mono">…902-3</span>. Correct format, wrong person's number. Nothing validates it against the real registry.</div>
+        </div>
+        <div class="note" style="--c:var(--teal)">
+          <span class="nb">6</span>
+          <div><b>Misfiled / merged</b>A 71-year-old patient's record now carries Maria's contact number and PhilHealth number. Two files were merged by hand, wrongly.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. WHAT GOES WRONG ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">04 · What goes wrong</div>
+      <h2>Five failure types, five downstream costs</h2>
+      <p class="lede">Each failure is a category. Each category has a specific consequence at <i>this</i> clinic — not "data quality issues" in general.</p>
+
+      <div class="tablewrap">
+        <table style="min-width:720px">
+          <thead>
+            <tr><th>Failure type</th><th>What it looks like here</th><th>What it causes downstream</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b style="color:var(--bad)">Duplicate</b></td>
+              <td style="white-space:normal">Two rows with the same Record ID; two more for the same woman under a different spelling.</td>
+              <td style="white-space:normal">Two treatment histories. The penicillin allergy recorded in one file is invisible in the other, so a drug is prescribed that should not have been.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--violet)">Conflicting</b></td>
+              <td style="white-space:normal">Two different PhilHealth numbers for one person, both in valid format, no rule for which wins.</td>
+              <td style="white-space:normal">The claim is rejected. The clinic either absorbs the cost or the patient pays cash at the counter.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--accent)">Stale</b></td>
+              <td style="white-space:normal">Last visit still reads 2023-06-15 while she has been in monthly.</td>
+              <td style="white-space:normal">The prenatal risk flag never updates. She is managed as low-risk and her blood pressure trend is never seen.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--info)">Incomplete</b></td>
+              <td style="white-space:normal">No contact number, no PhilHealth number in the newest file.</td>
+              <td style="white-space:normal">The TB follow-up text never sends. She misses two appointments, and the clinic later pays for a treatment restart.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--teal)">Misfiled</b></td>
+              <td style="white-space:normal">Lourdes's record carries Maria's contact and PhilHealth number.</td>
+              <td style="white-space:normal">Lourdes's consultation is charged to Maria's account — and Maria's PhilHealth record now holds another person's diagnosis. That is a privacy breach, not a typo.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:.9rem;border-left:4px solid var(--accent)">
+        <p style="margin:0;font-size:.95rem">
+          <b>Note the pattern:</b> none of these failures stop the process. The clinic keeps working,
+          the line keeps moving, the report still prints. Bad information fails <i>quietly</i> and
+          bills you later.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. THE COST MODEL ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">05 · The cost model</div>
+      <h2>"How do you measure the cost?"</h2>
+      <p class="lede">Four buckets. Only two of them need an estimate; the other two you can count.</p>
+
+      <div class="grid g4" style="margin-bottom:1rem">
+        <div class="card" style="border-top:3px solid var(--info)">
+          <h4>1 · Staff time</h4>
+          <p class="small" style="margin:0">Rework, searching, re-typing, phone calls to reconcile. <b>Here:</b> 12 minutes per staff member per day hunting for the right Maria.</p>
+        </div>
+        <div class="card" style="border-top:3px solid var(--bad)">
+          <h4>2 · Direct financial loss</h4>
+          <p class="small" style="margin:0">Double billing, rejected claims, stock loss, write-offs. <b>Here:</b> rejected PhilHealth claims at ₱1,800 each.</p>
+        </div>
+        <div class="card" style="border-top:3px solid var(--violet)">
+          <h4>3 · Compliance &amp; risk</h4>
+          <p class="small" style="margin:0">Wrong treatment, privacy breach, audit findings. <b>Here:</b> a prescription written against an incomplete allergy history.</p>
+        </div>
+        <div class="card" style="border-top:3px solid var(--accent)">
+          <h4>4 · Trust &amp; decision cost</h4>
+          <p class="small" style="margin:0">Bad reports produce bad decisions. <b>Here:</b> a 212-patient report that hides the real 198 — and a vaccine order for 14 people who do not exist.</p>
+        </div>
+      </div>
+
+      <div class="calc">
+        <div>
+          <h3 style="margin-bottom:.5rem">Worked example — one clinic, one month</h3>
+          <pre class="math">4 staff × (12 min ÷ 60) × ₱120/hr × 22 days  =  ₱2,112 / month
+<i>+</i> 4 rejected PhilHealth claims × ₱1,800      =  ₱7,200 / month
+                                                 ──────────────
+                                                 <b>₱9,312 / month</b>
+                                                 <b>₱111,744 / year</b>
+
+<i>for a clinic serving about 200 patients a month.</i></pre>
+          <p class="small" style="margin-top:.6rem">
+            Reproduce this in a spreadsheet: four columns of counts, one rate, one multiply.
+            <b>The annual figure is the one that gets you a meeting.</b>
+          </p>
+        </div>
+
+        <div class="calc-out">
+          <div class="small" style="text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:var(--accent);margin-bottom:.15rem">Cost of bad records</div>
+          <div class="total">₱<span id="calcTotal">9,312</span><small> / month</small></div>
+          <div class="small" style="margin-bottom:.7rem">≈ <b style="color:var(--good)">₱<span id="calcYear">111,744</span></b> per year</div>
+
+          <div class="split"><span>Staff time</span><b>₱<span id="calcTime">2,112</span></b></div>
+          <div class="split"><span>Hard losses</span><b>₱<span id="calcHard">7,200</span></b></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:.9rem">
+        <h3 style="margin-bottom:.4rem">Move the numbers — the total moves with them</h3>
+        <div class="calc" style="grid-template-columns:1fr 1fr;gap:0 1.4rem">
+          <div>
+            <div class="slider">
+              <label for="k-staff">Staff who touch records</label>
+              <output id="o-staff">4</output>
+              <input id="k-staff" type="range" data-k="staff" min="1" max="20" step="1" value="4">
+            </div>
+            <div class="slider">
+              <label for="k-mins">Minutes lost per staff per day</label>
+              <output id="o-mins">12</output>
+              <input id="k-mins" type="range" data-k="mins" min="2" max="60" step="1" value="12">
+            </div>
+            <div class="slider">
+              <label for="k-rate">Hourly rate (₱)</label>
+              <output id="o-rate">120</output>
+              <input id="k-rate" type="range" data-k="rate" min="60" max="400" step="10" value="120">
+            </div>
+          </div>
+          <div>
+            <div class="slider">
+              <label for="k-days">Working days per month</label>
+              <output id="o-days">22</output>
+              <input id="k-days" type="range" data-k="days" min="15" max="26" step="1" value="22">
+            </div>
+            <div class="slider">
+              <label for="k-claims">Rejected claims per month</label>
+              <output id="o-claims">4</output>
+              <input id="k-claims" type="range" data-k="claims" min="0" max="30" step="1" value="4">
+            </div>
+            <div class="slider">
+              <label for="k-claimCost">Cost per rejected claim (₱)</label>
+              <output id="o-claimCost">1,800</output>
+              <input id="k-claimCost" type="range" data-k="claimCost" min="200" max="5000" step="100" value="1800">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. WHO IS RESPONSIBLE ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">06 · Ownership</div>
+      <h2>"Who is responsible for fixing the data?"</h2>
+      <p class="lede">Everyone touches it, so someone has to own it. Four roles — and only one of them is <i>accountable</i>.</p>
+
+      <div class="tablewrap">
+        <table style="min-width:760px">
+          <thead>
+            <tr><th>Role</th><th>Who that is at this clinic</th><th>Decides / does</th><th>Accountable for</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b style="color:var(--accent)">Data owner</b></td>
+              <td style="white-space:normal">The Municipal Health Officer</td>
+              <td style="white-space:normal">Decides what data is collected, who may see it, how long it is kept, and what "good enough" means.</td>
+              <td style="white-space:normal">The record being fit for its purpose. Signs off. Answers to the city when it is not.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--good)">Data steward</b></td>
+              <td style="white-space:normal">The clinic's records officer (a senior nurse)</td>
+              <td style="white-space:normal">Writes the matching rule, decides which duplicate is the survivor, merges them, reviews exceptions weekly.</td>
+              <td style="white-space:normal">Data quality: the merge decisions and the "search before you create" rule.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--info)">Data custodian</b></td>
+              <td style="white-space:normal">The city IT office / the assigned encoder</td>
+              <td style="white-space:normal">Runs the system: backups, accounts, access control, restores, uptime.</td>
+              <td style="white-space:normal">Security and availability. <b>Not</b> whether the content is correct.</td>
+            </tr>
+            <tr>
+              <td><b style="color:var(--muted)">End user</b></td>
+              <td style="white-space:normal">The clerk at the front desk, the midwife, the encoder</td>
+              <td style="white-space:normal">Searches by ID before creating anything; flags anything that looks wrong; enters accurately.</td>
+              <td style="white-space:normal">Following the rule on the desk in front of them. Nothing more, nothing less.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid g2" style="margin-top:.9rem">
+        <div class="card" style="border-left:4px solid var(--accent)">
+          <h4>Fixing is shared. Accountability is named.</h4>
+          <p class="small" style="margin:0">"Everyone is responsible for data quality" means nobody is. The clinic's fix worked because a <b>records officer</b> — one name — was told to merge the duplicates by a date.</p>
+        </div>
+        <div class="card" style="border-left:4px solid var(--bad)">
+          <h4>The custodian is not the fall guy</h4>
+          <p class="small" style="margin:0">"IT will fix it" is the most expensive sentence in information management. IT can restore a backup. It cannot know that "Ma. Sarah" and "Maria" are the same person. That is a stewardship decision.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7. LIVE DEMO — BEFORE ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker" style="color:var(--bad)">07 · Live demo — before</div>
+      <h2>One check-up, with the records as they are</h2>
+      <p class="lede">Process under test: <b>patient check-in → record lookup → consultation → billing → claim → city report.</b> Watch the running clock.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="n">1</div>
+          <div>
+            <h4>Check-in</h4>
+            <p>The clerk types "Maria Dela Cruz" into the search box.</p>
+            <div class="brk">⚠ Four rows come back. Nothing on screen says which one is current. She asks the patient her birthday, which matches all four.</div>
+          </div>
+          <div class="t">+2 min</div>
+        </div>
+
+        <div class="step">
+          <div class="n">2</div>
+          <div>
+            <h4>Record lookup</h4>
+            <p>She opens the top record, P-1042. It says last visit 2024-11-04. Unsure, she also opens P-1187.</p>
+            <div class="brk">⚠ Two files open in two tabs. She picks P-1042 because the ID looks "more official". There is no unique identifier being searched — only a name.</div>
+          </div>
+          <div class="t">+5 min</div>
+        </div>
+
+        <div class="step">
+          <div class="n">3</div>
+          <div>
+            <h4>Consultation</h4>
+            <p>The midwife reads the history from P-1042 and takes blood pressure.</p>
+            <div class="brk">⚠ The allergy note ("penicillin — rash") lives in P-1187. The midwife never sees it. The risk flag is missing because this file is stale.</div>
+          </div>
+          <div class="t">+3 min</div>
+        </div>
+
+        <div class="step">
+          <div class="n">4</div>
+          <div>
+            <h4>Billing / PhilHealth</h4>
+            <p>The encoder copies the PhilHealth number from the record that has one filled in — P-1090.</p>
+            <div class="brk">⚠ That number is wrong by one digit. It is in a valid format, so the form accepts it. No one checks it against the registry.</div>
+          </div>
+          <div class="t">+3 min</div>
+        </div>
+
+        <div class="step">
+          <div class="n">5</div>
+          <div>
+            <h4>Submit claim</h4>
+            <p>The claim is transmitted to PhilHealth at the end of the day.</p>
+            <div class="brk">⚠ Nine days later it comes back rejected: patient name does not match the PhilHealth number. Rework loop starts — the claim is re-filed by hand.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+
+        <div class="step">
+          <div class="n">6</div>
+          <div>
+            <h4>End-of-day report</h4>
+            <p>The system counts rows, not people, and produces the monthly patient count.</p>
+            <div class="brk">⚠ Maria is counted three times. The report to the city reads 212 patients. The real number is 198. The vaccine order is based on 212.</div>
+          </div>
+          <div class="t">+2 min</div>
+        </div>
+      </div>
+
+      <div class="totals">
+        <span class="chip bad">Total: 16 min for a 4-minute visit</span>
+        <span class="chip bad">2 duplicate files opened</span>
+        <span class="chip bad">1 rejected claim (₱1,800)</span>
+        <span class="chip bad">1 wrong report (212 vs 198)</span>
+        <span class="chip bad">1 rework loop</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8. LIVE DEMO — AFTER ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker" style="color:var(--good)">08 · Live demo — after</div>
+      <h2>The same check-up, with the records cleaned</h2>
+      <p class="lede">Same six steps, same order, same layout. One thing changed: <b>one patient, one record, one identifier.</b></p>
+
+      <div class="steps">
+        <div class="step after">
+          <div class="n">1</div>
+          <div>
+            <h4>Check-in</h4>
+            <p>The clerk types the patient ID (or name + date of birth) into the search box.</p>
+            <div class="win">✓ Exactly one row comes back. The rule on the desk says: no match means you do not create — you escalate to the records officer.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+
+        <div class="step after">
+          <div class="n">2</div>
+          <div>
+            <h4>Record lookup</h4>
+            <p>P-1042 opens. Last visit: 2025-02-02. One file, one tab.</p>
+            <div class="win">✓ The four duplicates were merged and retired in the cleanup. The surviving ID is the only one that exists.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+
+        <div class="step after">
+          <div class="n">3</div>
+          <div>
+            <h4>Consultation</h4>
+            <p>The midwife reads one complete history, including the penicillin allergy and the full BP trend.</p>
+            <div class="win">✓ Same three minutes — but this time the risk flag is current, so the consultation is actually safe. No extra time, less clinical risk.</div>
+          </div>
+          <div class="t">+3 min</div>
+        </div>
+
+        <div class="step after">
+          <div class="n">4</div>
+          <div>
+            <h4>Billing / PhilHealth</h4>
+            <p>The encoder copies the PhilHealth number from the same single record.</p>
+            <div class="win">✓ The number was validated against the registry during the cleanup, so there is nothing to reconcile.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+
+        <div class="step after">
+          <div class="n">5</div>
+          <div>
+            <h4>Submit claim</h4>
+            <p>The claim is transmitted at the end of the day.</p>
+            <div class="win">✓ Accepted first pass. No rework loop, no nine-day wait, no ₱1,800 write-off.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+
+        <div class="step after">
+          <div class="n">6</div>
+          <div>
+            <h4>End-of-day report</h4>
+            <p>The system counts unique patient IDs.</p>
+            <div class="win">✓ 198 patients. The city health office orders vaccines for 198 and the number survives an audit.</div>
+          </div>
+          <div class="t">+1 min</div>
+        </div>
+      </div>
+
+      <div class="totals">
+        <span class="chip good">Total: 8 min for the same visit</span>
+        <span class="chip good">1 lookup</span>
+        <span class="chip good">0 rejected claims</span>
+        <span class="chip good">0 wrong reports</span>
+        <span class="chip good">0 rework loops</span>
+      </div>
+
+      <p class="small" style="margin-top:.8rem">
+        Note what did <i>not</i> change: the software, the number of staff, the number of patients, and the clinical work itself.
+        The entire improvement came from the records being right.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 9. BEFORE vs AFTER SUMMARY ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">09 · Before vs after</div>
+      <h2>What the fix actually bought</h2>
+
+      <div class="toggle" id="cmpToggle">
+        <button data-view="both" class="on">Both</button>
+        <button data-view="before">Before</button>
+        <button data-view="after">After</button>
+      </div>
+
+      <div class="tablewrap">
+        <table class="cmp view-both" id="cmpTable">
+          <thead>
+            <tr><th>Metric</th><th>Before</th><th>After</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="metric">Lookups to find the right record</td><td class="col-before">6</td><td class="col-after">1</td></tr>
+            <tr><td class="metric">Minutes at the front desk + records</td><td class="col-before">16 min</td><td class="col-after">8 min</td></tr>
+            <tr><td class="metric">Records existing for one patient</td><td class="col-before">4</td><td class="col-after">1</td></tr>
+            <tr><td class="metric">Rejected PhilHealth claims (per month)</td><td class="col-before">4</td><td class="col-after">0</td></tr>
+            <tr><td class="metric">Patients in the monthly city report</td><td class="col-before">212 (actual 198)</td><td class="col-after">198 (actual 198)</td></tr>
+            <tr><td class="metric">Rework loops on a single visit</td><td class="col-before">1</td><td class="col-after">0</td></tr>
+            <tr><td class="metric">Staff time spent reconciling (per month)</td><td class="col-before">₱2,112</td><td class="col-after">≈ ₱0</td></tr>
+            <tr><td class="metric">Hard losses (per month)</td><td class="col-before">₱7,200</td><td class="col-after">₱0</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="caveat">
+        <b>The honest caveat — the fix is not free.</b> It cost roughly <b>40 hours of one-off cleanup</b> to merge and retire the
+        duplicate files, a <b>written "search before you create" rule</b> that someone has to enforce, <b>two half-day trainings</b>,
+        and <b>one named records officer</b> with the authority to merge records. Call it <b>₱30,000 and three months</b> before the
+        first clean month. Cheap next to ₱111,744 a year — but it does not happen by itself, and it will regress within a year
+        if the rule stops being enforced.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10. HOW THIS DIFFERS FROM LAB 1.3 ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">10 · Where this sits in the course</div>
+      <h2>Lab 1.3 mapped the flow. This topic breaks it.</h2>
+
+      <div class="vs">
+        <div class="card lab">
+          <div class="kicker" style="color:var(--info)">Lab 1.3</div>
+          <h3>Mapping shared information</h3>
+          <ul class="tight" style="margin-top:.6rem">
+            <li><b>Question asked:</b> who touches this record, and where does it travel?</li>
+            <li><b>Object of study:</b> the flow — people, handoffs, systems.</li>
+            <li><b>Output:</b> a map or diagram of the shared information.</li>
+            <li><b>Evidence you produce:</b> a description — "the nurse sends the form to billing."</li>
+            <li><b>Stance:</b> neutral. Describes the system as it is.</li>
+            <li><b>Deliverable:</b> static diagram + written walkthrough.</li>
+          </ul>
+        </div>
+
+        <div class="card topic">
+          <div class="kicker">This topic</div>
+          <h3>Analysing a failure in that flow</h3>
+          <ul class="tight" style="margin-top:.6rem">
+            <li><b>Question asked:</b> why did that flow produce a wrong record, and what did it cost?</li>
+            <li><b>Object of study:</b> one broken record inside the flow you already mapped.</li>
+            <li><b>Output:</b> a diagnosis, a cost figure, and a named owner.</li>
+            <li><b>Evidence you produce:</b> a number — "16 min → 8 min; ₱111,744 a year."</li>
+            <li><b>Stance:</b> judgemental. Says what is broken and who must act.</li>
+            <li><b>Deliverable:</b> before/after comparison + cost model + accountability table.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:.9rem;border-left:4px solid var(--accent)">
+        <p style="margin:0;font-size:.95rem">
+          <b>One sentence:</b> Lab 1.3 gives you the map. This topic gives you the accident report —
+          and the repair bill.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11. DISCUSSION / Q&A ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">11 · Discussion</div>
+      <h2>The two questions you should ask</h2>
+
+      <div class="qa">
+        <div class="q">Q1 · Who is responsible for fixing the data?</div>
+        <p class="a">
+          Everyone touches it, so someone must own it. The <b>data owner</b> — here, the Municipal Health Officer — is
+          accountable for the record being fit for purpose. The <b>data steward</b> — the records officer — decides how
+          duplicates get merged and writes the rule. The <b>custodian</b> — the city IT office — keeps it backed up and
+          access-controlled, and is <i>not</i> accountable for whether the content is right. The <b>end user</b> — the clerk —
+          searches before creating and flags what looks wrong. Fixing is shared; accountability is named.
+          If nobody's name is on it, it does not get fixed.
+        </p>
+      </div>
+
+      <div class="qa">
+        <div class="q">Q2 · How do you measure the cost?</div>
+        <p class="a">
+          Four buckets, and only two of them are estimates. <b>Staff time</b>: people × minutes × hourly rate × frequency.
+          <b>Hard loss</b>: rejected claims, double-billed items, stock written off — count them and multiply.
+          <b>Risk</b>: price one wrong treatment or one privacy breach from what your organisation would actually pay.
+          <b>Trust</b>: the decision that got made on a bad report. Add the first two for a defensible number; state the
+          last two as risk if you cannot price them honestly. And always annualise: ₱9,312 a month sounds small;
+          ₱111,744 a year gets a meeting.
+        </p>
+      </div>
+
+      <h3 style="margin-top:1.2rem">Three prompts for the room</h3>
+      <div class="prompt">
+        <span class="pn">1</span>
+        <div>Name one record in your own enrolment or grading system you would bet is duplicated. Who would you tell, and what exactly would you want them to do?</div>
+      </div>
+      <div class="prompt">
+        <span class="pn">2</span>
+        <div>The clinic can fund only one fix this year: dedupe the files, train the staff, or buy a new system. Which one, and what breaks if you pick wrong?</div>
+      </div>
+      <div class="prompt">
+        <span class="pn">3</span>
+        <div>The nurse says "the duplicate is IT's fault." Using the roles table, is she right? Who is actually accountable, and for what?</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 12. TAKEAWAYS + REFLECTION ============ -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">12 · Takeaways</div>
+      <h2>Four things to carry out of this room</h2>
+
+      <div class="card" style="margin-bottom:1rem">
+        <div class="take">
+          <div class="tn">1</div>
+          <div>
+            <h4>A wrong record is not a typo — it is a second, invisible process</h4>
+            <p>The clinic still ran. It just ran twice: once for the patient, once to repair the record. That second process is the cost.</p>
+          </div>
+        </div>
+        <div class="take">
+          <div class="tn">2</div>
+          <div>
+            <h4>Cost is countable, so count it</h4>
+            <p>People × minutes × rate × frequency, plus one hard loss. If you cannot put a number on it, nobody will fund the fix — and always annualise.</p>
+          </div>
+        </div>
+        <div class="take">
+          <div class="tn">3</div>
+          <div>
+            <h4>Responsibility is shared; accountability is named</h4>
+            <p>Owner decides, steward fixes, custodian protects, user enters. "Everyone is responsible" is how it never gets fixed.</p>
+          </div>
+        </div>
+        <div class="take">
+          <div class="tn">4</div>
+          <div>
+            <h4>Most duplicates die to two cheap things</h4>
+            <p>A unique identifier, and a rule that says <i>search before you create</i>. Neither one is a purchase.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>In-class task — due next meeting</h3>
+        <p style="margin:0 0 .5rem">
+          <b>Find one duplicate record in a system you actually use</b> — your enrolment record, your school portal,
+          your GCash or bank profile, your barangay's list, your family's sari-sari store notebook.
+        </p>
+        <p style="margin:0" class="small">
+          Write one page: the two records, the field that differs, who notices the problem, and what it costs in
+          <b>minutes or pesos</b>. Then name the person who should be accountable for fixing it, and the rule that
+          would have prevented it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ HUD ============ -->
+<nav class="hud">
+  <div class="hud-group">
+    <button class="btn" id="prev" aria-label="Previous slide">◀ Prev</button>
+    <button class="btn" id="next" aria-label="Next slide">Next ▶</button>
+  </div>
+  <div class="dots" id="dots"></div>
+  <div class="hud-group">
+    <span class="counter" id="counter">01 / 12</span>
+  </div>
+</nav>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- navigation ---------------- */
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var counter = document.getElementById('counter');
+  var bar = document.getElementById('bar');
+  var dotsBox = document.getElementById('dots');
+  var cur = 0;
+
+  // build dots
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.className = 'dot' + (i === 0 ? ' on' : '');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    b.addEventListener('click', function(){ go(i); });
+    dotsBox.appendChild(b);
+  });
+  var dots = Array.prototype.slice.call(dotsBox.children);
+
+  function pad(n){ return String(n).padStart(2, '0'); }
+
+  function go(i){
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function(s, k){ s.classList.toggle('active', k === cur); });
+    slides[cur].scrollTop = 0;
+    counter.textContent = pad(cur + 1) + ' / ' + pad(slides.length);
+    bar.style.width = ((cur + 1) / slides.length * 100) + '%';
+    dots.forEach(function(d, k){ d.classList.toggle('on', k === cur); });
+    document.getElementById('prev').disabled = (cur === 0);
+    document.getElementById('next').disabled = (cur === slides.length - 1);
+    if (history.replaceState) history.replaceState(null, '', '#' + (cur + 1));
+  }
+  window.go = go; // used by the Start button
+
+  document.getElementById('prev').addEventListener('click', function(){ go(cur - 1); });
+  document.getElementById('next').addEventListener('click', function(){ go(cur + 1); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+
+  // swipe (phones)
+  var tx = 0, ty = 0;
+  document.addEventListener('touchstart', function(e){
+    tx = e.changedTouches[0].clientX; ty = e.changedTouches[0].clientY;
+  }, {passive: true});
+  document.addEventListener('touchend', function(e){
+    var dx = e.changedTouches[0].clientX - tx;
+    var dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+      go(cur + (dx < 0 ? 1 : -1));
+    }
+  }, {passive: true});
+
+  // deep link
+  var h = parseInt((location.hash || '').replace('#', ''), 10);
+  go(isNaN(h) ? 0 : h - 1);
+
+  /* ---------------- cost calculator ---------------- */
+  var inputs = Array.prototype.slice.call(document.querySelectorAll('[data-k]'));
+  var out = {
+    total: document.getElementById('calcTotal'),
+    year: document.getElementById('calcYear'),
+    time: document.getElementById('calcTime'),
+    hard: document.getElementById('calcHard')
+  };
+
+  function fmt(n){
+    return Math.round(n).toLocaleString('en-US');
+  }
+
+  function updateCalc(){
+    var v = {};
+    inputs.forEach(function(inp){
+      v[inp.dataset.k] = parseFloat(inp.value);
+      var o = document.getElementById('o-' + inp.dataset.k);
+      if (o) o.textContent = (inp.dataset.k === 'rate' || inp.dataset.k === 'claimCost')
+        ? fmt(inp.value) : inp.value;
+    });
+
+    var timeCost = v.staff * (v.mins / 60) * v.rate * v.days;
+    var hardCost = v.claims * v.claimCost;
+    var total = timeCost + hardCost;
+
+    out.time.textContent = fmt(timeCost);
+    out.hard.textContent = fmt(hardCost);
+    out.total.textContent = fmt(total);
+    out.year.textContent = fmt(total * 12);
+  }
+
+  inputs.forEach(function(inp){ inp.addEventListener('input', updateCalc); });
+  updateCalc();
+
+  /* ---------------- before / after toggle ---------------- */
+  var cmpTable = document.getElementById('cmpTable');
+  var cmpToggle = document.getElementById('cmpToggle');
+  cmpToggle.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    Array.prototype.forEach.call(cmpToggle.children, function(b){ b.classList.toggle('on', b === btn); });
+    cmpTable.className = 'cmp view-' + btn.dataset.view;
+  });
+})();
+</script>
+</body>
+</html>
